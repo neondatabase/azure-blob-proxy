@@ -1,0 +1,19 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+
+  docker-build-release:
+    uses: ./.github/workflows/_docker.yml
+    with:
+      push: true
+      tag: ${{ github.ref_name }}
+    secrets: inherit
