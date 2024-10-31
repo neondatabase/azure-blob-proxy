@@ -45,6 +45,4 @@ jobs:
 
       - name: Add latest tag to image
         if: inputs.latest
-        run: docker buildx imagetools create -t 
-                neondatabase/azure-blob-proxy:latest \
-                neondatabase/azure-blob-proxy:${{ inputs.tag }}
+        run: docker buildx imagetools create -t neondatabase/azure-blob-proxy:latest neondatabase/azure-blob-proxy:${{ inputs.tag }}
