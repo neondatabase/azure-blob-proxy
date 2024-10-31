@@ -16,4 +16,5 @@ jobs:
     with:
       push: true
       tag: ${{ github.ref_name }}
+      latest: true
     secrets: inherit

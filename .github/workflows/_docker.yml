@@ -11,6 +11,11 @@ on:
         description: Docker image tag
         required: true
         type: string
+      latest:
+        description: Add latest tag to docker image
+        required: false
+        type: boolean
+        default: false
 
 
 defaults:
@@ -37,3 +42,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ inputs.push }}
           tags: neondatabase/azure-blob-proxy:${{ inputs.tag }}
+
+      - name: Add latest tag to image
+        if: inputs.latest
+        run: docker buildx imagetools create -t 
+                neondatabase/azure-blob-proxy:latest \
+                neondatabase/azure-blob-proxy:${{ inputs.tag }}
