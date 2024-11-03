@@ -24,6 +24,21 @@ var (
 )
 
 func main() {
+	// parse comand line args and environment variables
+	flag.StringVar(&listen, "http-listen-addr", LookupEnvOrString("HTTP_LISTEN_ADDR", listen), "http service listen address")
+	flag.StringVar(&accountName, "account-name", LookupEnvOrString("AZURE_STORAGE_ACCOUNT", accountName), "Azure Storage account name")
+	flag.StringVar(&containerName, "container-name", LookupEnvOrString("AZURE_STORAGE_CONTAINER", containerName), "Azure Storage blob container name")
+	flag.Parse()
+
+	// check mandatory parameters
+	if len(accountName) == 0 {
+		logger.Error("storage account name not specified")
+		os.Exit(1)
+	}
+	if len(containerName) == 0 {
+		logger.Error("storage container name not specified")
+		os.Exit(1)
+	}
 
 	// print azure log output to stdout
 	azlog.SetListener(func(event azlog.Event, s string) {
@@ -32,65 +47,48 @@ func main() {
 	// include only azidentity credential logs
 	azlog.SetEvents(azidentity.EventAuthentication)
 
-	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential
 	// get azure credentials
+	// https://github.com/Azure/azure-sdk-for-go/tree/main/sdk/azidentity
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		logger.Error("can't obtain credentials", "error", err)
+		logger.Error("get credentials", "error", err)
 		os.Exit(1)
 	}
 
-	// parse comand line args and environment variables
-	flag.StringVar(&listen, "http-listen-addr", LookupEnvOrString("HTTP_LISTEN_ADDR", listen), "http service listen address")
-	flag.StringVar(&accountName, "account-name", LookupEnvOrString("AZURE_STORAGE_ACCOUNT", accountName), "Azure Storage account name")
-	flag.StringVar(&containerName, "container-name", LookupEnvOrString("AZURE_STORAGE_CONTAINER", containerName), "Azure Storage blob container name")
-	flag.Parse()
-
-	// do necessary cheks
-	if len(accountName) == 0 {
-		logger.Error("Azure Storage account name not specified")
-		os.Exit(1)
-	}
-	if len(containerName) == 0 {
-		logger.Error("Azure Storage container name not specified")
-		os.Exit(1)
-	}
-
-	// define azure blob stroage client
-	client := &azblob.Client{}
+	// set azure blob storage client
+	var client *azblob.Client
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
 	os.Setenv("AZURE_STORAGE_AUTH_MODE", "login")
 
 	accountKey := LookupEnvOrString("AZURE_STORAGE_KEY", "")
 	if len(accountKey) != 0 {
-		// we have accessKey defined (running locally with azure-cli authentication)
-		// will use key to authorize
+		// accountKey defined (running locally with azure-cli authentication)
+		// use key to authorize
 		key, keyerr := azblob.NewSharedKeyCredential(accountName, accountKey)
 		if keyerr != nil {
-			logger.Error("account key error", "error", keyerr)
+			logger.Error("storage account key", "error", keyerr)
 			os.Exit(1)
 		}
 		client, err = azblob.NewClientWithSharedKeyCredential(serviceURL, key, nil)
 	} else {
-		// authori
 		client, err = azblob.NewClient(serviceURL, cred, nil)
 	}
 
 	if err != nil {
-		logger.Error("can't create storage blob client", "error", err)
+		logger.Error("storage blob client", "error", err)
 		os.Exit(1)
 	}
 
 	ctx := context.Background()
 
 	// serve requests
-	logger.Info("serving proxy requests", "addr", listen, "azure_storage_account", accountName, "container_name", containerName)
+	logger.Info("serving proxy requests", "addr", listen, "storage account", accountName, "container", containerName)
 	http.Handle("/healthz", healthHandler(ctx))
 	http.Handle("/", rootHandler(ctx, client, containerName))
 
 	err = http.ListenAndServe(listen, nil)
 	if err != nil {
-		logger.Error("can't stat http listener", "error", err)
+		logger.Error("http listener", "error", err)
 		os.Exit(1)
 	}
 
@@ -113,7 +111,7 @@ func rootHandler(ctx context.Context, client *azblob.Client, containerName strin
 		if r.Method == "GET" {
 			streamResponse, err := client.DownloadStream(ctx, containerName, key, &azblob.DownloadStreamOptions{})
 			if err != nil {
-				logger.Error("blob not found", "blob", blobFullName, "error", err)
+				logger.Error("download blob", "blob", blobFullName, "error", err)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
