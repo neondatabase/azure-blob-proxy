@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-blob-proxy
+  namespace: default
+  labels:
+    app.kubernetes.io/name: azure-blob-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: azure-blob-proxy
+  template:
+    metadata:
+      annotations:
+        azure.workload.identity/skip-containers: nginx
+        kubectl.kubernetes.io/default-container: proxy
+      labels:
+        azure.workload.identity/use: "true"
+        app.kubernetes.io/name: azure-blob-proxy
+    spec:
+      serviceAccountName: azure-blob-proxy
+      enableServiceLinks: false
+      containers:
+      - name: proxy
+        image: neondatabase/azure-blob-proxy:latest
+        env:
+          - name:  AZURE_STORAGE_ACCOUNT
+            value: azureblobproxydemo
+          - name:  AZURE_STORAGE_CONTAINER
+            value: azure-blob-proxy-demo
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      - name: nginx
+        image: nginx:1.27-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 1
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 1
+          periodSeconds: 30
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: azure-blob-proxy-nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+          readOnly: true
+      volumes:
+      - name: azure-blob-proxy-nginx-config
+        configMap:
+          name: azure-blob-proxy-nginx-config
+          items:
+            - key: default.conf
+              path: default.conf
+

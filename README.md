@@ -4,6 +4,18 @@
 
 Simple read-only access to Azure Blob storage containers
 
+# Usage
+
+Typically the `azure-blob-proxy` runs in Azure Kubernetes Service (AKS)
+as a k8s deployment and proxies http requests to a designated blob storage container.
+Example manifests can be found at [examples/manifests](examples/manifests).
+The example contains` azure-blob-proxy` with a combination of Nginx working
+as cache in front of it. Using Nginx can significantly reduce the load on
+Azure blob storage and increase response speed.
+
+The [examples/terraform](examples/terraform) folder contains sample terraform code
+for creating an Azure blobs storage, container, example blob and workload identity for AKS.
+
 # Local run
 
 > [!NOTE]
