@@ -4,6 +4,7 @@
 # Binaries for programs and plugins
 
 azure-blob-proxy
+myfile.txt
 
 *.exe
 *.exe~
